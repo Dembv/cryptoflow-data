@@ -1,0 +1,57 @@
+# path: dbt/models/staging/_sources.yml
+
+version: 2
+
+sources:
+  - name: timescale
+    description: "Tables brutes TimescaleDB ingérées depuis Kafka"
+    database: cryptoflow
+    schema: public
+    tables:
+      - name: raw_trades
+        description: "Trades Binance tick-by-tick"
+        columns:
+          - name: trade_id
+            tests: [not_null]
+          - name: symbol
+            tests: [not_null, accepted_values: {values: ['BTC','ETH','SOL','BNB','XRP']}]
+          - name: price
+            tests: [not_null, dbt_expectations.expect_column_values_to_be_between: {min_value: 0}]
+          - name: quantity
+            tests: [not_null, dbt_expectations.expect_column_values_to_be_between: {min_value: 0}]
+          - name: trade_time
+            tests: [not_null]
+
+      - name: prices_5min
+        description: "OHLCV 5 minutes depuis CoinGecko"
+        columns:
+          - name: bucket
+            tests: [not_null]
+          - name: symbol
+            tests: [not_null]
+          - name: high
+            tests: [not_null]
+          - name: low
+            tests: [not_null]
+
+      - name: indicators
+        description: "Indicateurs VWAP/RSI/Bollinger calculés par Spark"
+        columns:
+          - name: computed_at
+            tests: [not_null]
+          - name: symbol
+            tests: [not_null]
+          - name: window_label
+            tests:
+              - accepted_values:
+                  values: ['1 minute', '5 minutes', '1 hour']
+
+      - name: onchain_events
+        description: "Transactions ETH et ERC-20 whales depuis Etherscan"
+        columns:
+          - name: tx_hash
+            tests: [not_null]
+          - name: event_type
+            tests:
+              - accepted_values:
+                  values: ['eth_transaction', 'token_transfer']

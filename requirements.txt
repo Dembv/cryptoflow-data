@@ -1,0 +1,41 @@
+# path requirements.txt
+
+# CryptoFlow — dépendances runtime (producers, sinks, API, dashboard)
+# Python 3.11 requis (kafka-python 2.0.2 ne fonctionne pas en 3.12)
+# Dev/tests : requirements-dev.txt — Airflow : airflow/requirements.txt
+
+# Kafka
+kafka-python==2.0.2
+
+# WebSocket (Binance)
+websockets==12.0
+
+# HTTP (CoinGecko + Etherscan)
+requests==2.31.0
+
+# Environment
+python-dotenv==1.0.0
+
+# Serialization
+ujson==5.9.0
+
+# Utilities
+tenacity==8.2.3        # retry logic
+structlog==24.1.0      # structured logging
+
+# Compression
+python-snappy     # for Kafka message compression
+
+# TimescaleDB
+psycopg[binary,pool]==3.1.18
+
+# Redis
+redis==5.0.1
+
+# API + dashboard
+fastapi==0.110.0
+pydantic-settings==2.2.1
+uvicorn[standard]==0.29.0
+streamlit==1.39.0              # st.fragment(run_every=...) pour le rafraîchissement partiel
+pandas==2.2.1
+plotly==5.20.0

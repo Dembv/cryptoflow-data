@@ -1,0 +1,10 @@
+env/
+.venv/
+.git/
+__pycache__/
+.pytest_cache/
+airflow/
+dbt/
+tests/
+config/.env
+spark/config/.env

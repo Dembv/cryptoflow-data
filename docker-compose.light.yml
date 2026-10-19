@@ -1,0 +1,32 @@
+# Surcharge "léger" : 1 broker Kafka, sans Schema Registry (≈ 2 Go de RAM en moins).
+#
+#   make up LIGHT=1
+# ou, à la main :
+#   KAFKA_BOOTSTRAP=broker-1:29092 KAFKA_REPLICATION=1 \
+#     docker compose -f docker-compose.yml -f docker-compose.light.yml up -d
+
+services:
+  broker-2:
+    profiles: [full]
+  broker-3:
+    profiles: [full]
+  schema-registry:
+    profiles: [full]
+
+  broker-1:
+    environment:
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+
+  kafka-init:
+    depends_on: !override
+      broker-1:
+        condition: service_healthy
+
+  kafka-ui:
+    depends_on: !override
+      - broker-1
+    environment:
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker-1:29092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: !reset null

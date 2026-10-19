@@ -1,0 +1,19 @@
+# Surcharge "minimal" : à combiner avec docker-compose.light.yml (1 broker, sans Schema Registry).
+# Retire en plus Spark (master + worker), MinIO et Kafka UI.
+# Reste : Zookeeper, 1 broker Kafka, TimescaleDB, Redis (+ profil "app" : producers, sinks, API, dashboard).
+#
+#   make start MODE=minimal      (ou make up MODE=minimal)
+#
+# Indisponible dans ce mode : `make streaming` et `make delta` (ils exigent Spark / MinIO).
+
+services:
+  spark-master:
+    profiles: [full]
+  spark-worker:
+    profiles: [full]
+  minio:
+    profiles: [full]
+  minio-init:
+    profiles: [full]
+  kafka-ui:
+    profiles: [full]

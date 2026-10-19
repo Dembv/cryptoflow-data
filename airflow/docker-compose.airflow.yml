@@ -1,0 +1,147 @@
+# path: airflow/docker-compose.airflow.yml
+# Airflow avec CeleryExecutor — Redis broker + PostgreSQL metadata DB
+
+x-airflow-common: &airflow-common
+  image: cryptoflow-airflow:2.8.1
+  build:
+    context: .                  # le .dockerignore racine exclut airflow/ : on isole ce build
+    dockerfile: Dockerfile
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://airflow-redis:6380/0
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-}   # générer : python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY:-cryptoflow-dev-only}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # Variables CryptoFlow injectées
+    CRYPTOFLOW_TIMESCALE_DSN: postgresql://crypto:crypto@timescaledb:5432/cryptoflow
+    CRYPTOFLOW_KAFKA_SERVERS: broker-1:29092,broker-2:29093,broker-3:29094
+    CRYPTOFLOW_SLACK_WEBHOOK: ${SLACK_WEBHOOK_URL:-}
+    DBT_PROFILES_DIR: /opt/airflow/dbt
+    TIMESCALE_HOST: timescaledb
+    TIMESCALE_PORT: "5432"
+    TIMESCALE_DB: cryptoflow
+    TIMESCALE_USER: crypto
+    TIMESCALE_PASSWORD: crypto
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ../dbt:/opt/airflow/dbt
+    - ../spark:/opt/airflow/jobs
+  depends_on: &airflow-common-depends-on
+    airflow-redis:
+      condition: service_healthy
+    airflow-postgres:
+      condition: service_healthy
+  networks:
+    - cryptoflow-network
+
+services:
+  airflow-postgres:
+    image: postgres:15
+    container_name: cryptoflow-airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cryptoflow-network
+
+  airflow-redis:
+    image: redis:7-alpine
+    container_name: cryptoflow-airflow-redis
+    expose:
+      - 6380
+    command: redis-server --port 6380
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6380", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cryptoflow-network
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: cryptoflow-airflow-webserver
+    command: webserver
+    ports:
+      - "8085:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: cryptoflow-airflow-scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  airflow-worker:
+    <<: *airflow-common
+    container_name: cryptoflow-airflow-worker
+    command: celery worker
+    environment:
+      <<: *airflow-common-env
+      DUMB_INIT_SETSID: "0"
+
+  airflow-worker-2:
+    <<: *airflow-common
+    container_name: cryptoflow-airflow-worker-2
+    command: celery worker
+    environment:
+      <<: *airflow-common-env
+      DUMB_INIT_SETSID: "0"
+
+  airflow-flower:
+    <<: *airflow-common
+    container_name: cryptoflow-airflow-flower
+    command: celery flower
+    ports:
+      - "5555:5555"
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: cryptoflow-airflow-init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username admin \
+          --firstname CryptoFlow \
+          --lastname Admin \
+          --role Admin \
+          --email admin@cryptoflow.local \
+          --password ${AIRFLOW_ADMIN_PASSWORD:-admin}
+        echo "Airflow initialized."
+    restart: "no"
+
+volumes:
+  airflow-postgres-data:
+
+networks:
+  cryptoflow-network:
+    external: true
+    name: cryptoflow-network

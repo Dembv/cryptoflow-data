@@ -1,0 +1,25 @@
+# path: dbt/profiles.yml
+
+cryptoflow:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('TIMESCALE_HOST', 'localhost') }}"
+      port: "{{ env_var('TIMESCALE_PORT', '5433') | int }}"
+      user: "{{ env_var('TIMESCALE_USER', 'crypto') }}"
+      password: "{{ env_var('TIMESCALE_PASSWORD', 'crypto') }}"
+      dbname: "{{ env_var('TIMESCALE_DB', 'cryptoflow') }}"
+      schema: public
+      threads: 4
+      keepalives_idle: 0
+      connect_timeout: 10
+    prod:
+      type: postgres
+      host: "{{ env_var('TIMESCALE_HOST') }}"
+      port: "{{ env_var('TIMESCALE_PORT') | int }}"
+      user: "{{ env_var('TIMESCALE_USER') }}"
+      password: "{{ env_var('TIMESCALE_PASSWORD') }}"
+      dbname: "{{ env_var('TIMESCALE_DB') }}"
+      schema: public
+      threads: 8

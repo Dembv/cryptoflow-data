@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+pythonpath = [".", "airflow/plugins"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+extend-exclude = ["env", "dbt"]
+
+[tool.ruff.lint]
+# Erreurs critiques uniquement (syntaxe, noms indéfinis) : le lint de style viendra plus tard
+select = ["E9", "F63", "F7", "F82"]

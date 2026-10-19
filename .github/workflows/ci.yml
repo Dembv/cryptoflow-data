@@ -1,0 +1,38 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - uses: actions/setup-java@v4          # tests Spark natifs (expressions vs fonctions pures)
+        with: { distribution: temurin, java-version: "17" }
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check .
+      - run: pytest -q --cov=spark --cov=api --cov=alerts --cov=common
+
+  compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp config/.env.example config/.env
+      - run: docker compose --profile app config -q
+      - run: >
+          KAFKA_BOOTSTRAP=broker-1:29092 KAFKA_REPLICATION=1
+          docker compose -f docker-compose.yml -f docker-compose.light.yml --profile app config -q
+      - run: >
+          KAFKA_BOOTSTRAP=broker-1:29092 KAFKA_REPLICATION=1
+          docker compose -f docker-compose.yml -f docker-compose.light.yml -f docker-compose.minimal.yml --profile app config -q
+      - run: docker compose -f airflow/docker-compose.airflow.yml config -q
+
+  dbt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install dbt-postgres==1.7.4
+      - run: cd dbt && dbt deps --profiles-dir . && dbt parse --profiles-dir .
